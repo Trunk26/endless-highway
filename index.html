@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Endless Highway</title>
+    <style>
+/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none; /* Prevent text selection */
+    -webkit-user-select: none;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden; /* Prevent scrolling */
+    background-color: #111;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: white;
+    touch-action: none; /* Prevent default touch actions like pull-to-refresh */
+}
+
+#game-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    max-width: 600px; /* Limit width for desktop play */
+    margin: 0 auto; /* Center on desktop */
+    background-color: #222;
+    overflow: hidden;
+}
+
+/* Canvas */
+#game-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+}
+
+/* UI Layer */
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Let clicks pass through by default */
+}
+
+.screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease;
+    pointer-events: none; /* Let clicks pass through */
+    z-index: 10;
+}
+
+.screen.active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto; /* Enable clicks on active screens */
+}
+
+/* Main Menu */
+#main-menu {
+    background: linear-gradient(to bottom, rgba(10, 10, 30, 0.9), rgba(30, 10, 10, 0.9));
+}
+
+.title {
+    font-size: 3rem;
+    font-weight: 900;
+    text-align: center;
+    margin-bottom: 20px;
+    color: #fff;
+    text-shadow: 0 0 10px #f00, 0 0 20px #f00;
+    letter-spacing: 2px;
+    font-style: italic;
+    transform: skewX(-5deg);
+}
+
+.best-score-display {
+    font-size: 1.5rem;
+    margin-bottom: 40px;
+    color: #aaa;
+}
+
+/* Buttons */
+.btn {
+    padding: 15px 40px;
+    margin: 10px;
+    font-size: 1.5rem;
+    font-weight: bold;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: transform 0.1s, filter 0.2s;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    pointer-events: auto;
+}
+
+.btn:active {
+    transform: scale(0.95);
+}
+
+.btn-primary {
+    background: linear-gradient(to right, #f00, #ff5e00);
+    color: white;
+}
+
+.btn-secondary {
+    background: linear-gradient(to right, #444, #666);
+    color: white;
+}
+
+.btn-small {
+    padding: 10px 20px;
+    font-size: 1rem;
+    background: transparent;
+    border: 2px solid #555;
+    color: #ccc;
+    margin-top: 30px;
+}
+
+/* HUD */
+#hud {
+    justify-content: space-between;
+    padding: 20px;
+}
+
+#hud.active {
+    pointer-events: none; /* HUD shouldn't block touch input */
+}
+
+.hud-top {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-top: env(safe-area-inset-top, 10px); /* For notched phones */
+}
+
+.distance-display {
+    font-size: 2rem;
+    font-weight: bold;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+}
+
+.coin-display {
+    font-size: 1.5rem;
+    font-weight: bold;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    color: #ffd700;
+}
+
+.hud-center {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.message-text {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #0f0;
+    text-shadow: 0 0 10px #0f0;
+    opacity: 0;
+    transform: translateY(20px) scale(0.8);
+    transition: all 0.2s ease-out;
+}
+
+.message-text.show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.hud-powerup {
+    font-size: 1.5rem;
+    font-weight: bold;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    margin-bottom: 20px;
+    color: #0ff;
+}
+
+/* Game Over */
+#game-over {
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(5px);
+}
+
+.game-over-title {
+    font-size: 3rem;
+    font-weight: 900;
+    color: #ff3333;
+    margin-bottom: 20px;
+    text-shadow: 0 0 10px #f00;
+    transform: skewX(-5deg);
+}
+
+.stats-box {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 20px;
+    border-radius: 15px;
+    margin-bottom: 30px;
+    text-align: center;
+    width: 80%;
+    max-width: 300px;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.stat-row {
+    font-size: 1.2rem;
+    margin: 10px 0;
+    color: #ccc;
+}
+
+.stat-row.highlight {
+    color: #fff;
+    font-weight: bold;
+    font-size: 1.4rem;
+}
+
+.new-record {
+    color: #ffd700;
+    font-weight: bold;
+    font-size: 1.5rem;
+    margin-top: 15px;
+    text-shadow: 0 0 10px #ffd700;
+    display: none;
+    animation: pulse 1s infinite alternate;
+}
+
+.new-record.show {
+    display: block;
+}
+
+@keyframes pulse {
+    from { transform: scale(1); opacity: 0.8; }
+    to { transform: scale(1.1); opacity: 1; }
+}
+
+</style>
+</head>
+<body>
+    <div id="game-container">
+        <!-- Canvas for rendering -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- UI Overlays -->
+        <div id="ui-layer">
+            <!-- Main Menu -->
+            <div id="main-menu" class="screen active">
+                <h1 class="title">ENDLESS HIGHWAY</h1>
+                <div class="best-score-display">BEST: <span id="menu-best-score">0</span>m</div>
+                <button id="btn-play" class="btn btn-primary">PLAY</button>
+                <button id="btn-sound" class="btn btn-small">🔊 SOUND ON</button>
+            </div>
+
+            <!-- HUD (Heads Up Display) -->
+            <div id="hud" class="screen">
+                <div class="hud-top">
+                    <div class="distance-display"><span id="hud-distance">0</span>m</div>
+                    <div class="coin-display">🪙 <span id="hud-coins">0</span></div>
+                </div>
+                <div class="hud-center">
+                    <div id="message-display" class="message-text"></div>
+                </div>
+                <div class="hud-powerup" id="hud-powerup"></div>
+            </div>
+
+            <!-- Game Over Screen -->
+            <div id="game-over" class="screen">
+                <h1 class="game-over-title">CRASHED!</h1>
+                <div class="stats-box">
+                    <div class="stat-row">DISTANCE: <span id="go-distance">0</span>m</div>
+                    <div class="stat-row">COINS: <span id="go-coins">0</span></div>
+                    <div class="stat-row highlight">BEST: <span id="go-best-score">0</span>m</div>
+                    <div id="new-record-msg" class="new-record">NEW RECORD!</div>
+                </div>
+                <button id="btn-play-again" class="btn btn-primary">PLAY AGAIN</button>
+                <button id="btn-home" class="btn btn-secondary">HOME</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+// Simple Web Audio API sound system
+class AudioSystem {
+    constructor() {
+        this.ctx = null;
+        this.enabled = true;
+        this.engineOscillator = null;
+        this.engineGain = null;
+    }
+
+    init() {
+        if (!this.ctx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) {
+                this.ctx = new AudioContext();
+            }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+    }
+
+    toggleMute() {
+        this.enabled = !this.enabled;
+        if (!this.enabled && this.engineGain) {
+            this.engineGain.gain.value = 0;
+        } else if (this.enabled && this.engineGain) {
+            this.engineGain.gain.value = 0.1;
+        }
+        return this.enabled;
+    }
+
+    playClick() {
+        if (!this.enabled || !this.ctx) return;
+        this._playTone(400, 'square', 0.1, 0.1, 0.01);
+    }
+
+    playCoin() {
+        if (!this.enabled || !this.ctx) return;
+        this._playTone(1200, 'sine', 0.1, 0.1, 0.05);
+        setTimeout(() => this._playTone(1600, 'sine', 0.1, 0.15, 0.05), 50);
+    }
+
+    playCrash() {
+        if (!this.enabled || !this.ctx) return;
+        this.stopEngine();
+        
+        // White noise for crash
+        const bufferSize = this.ctx.sampleRate * 0.5; // 0.5 seconds
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+        
+        const noiseSource = this.ctx.createBufferSource();
+        noiseSource.buffer = buffer;
+        
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 1000;
+        
+        const gainNode = this.ctx.createGain();
+        gainNode.gain.setValueAtTime(0.5, this.ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+        
+        noiseSource.connect(filter);
+        filter.connect(gainNode);
+        gainNode.connect(this.ctx.destination);
+        
+        noiseSource.start();
+    }
+
+    playNearMiss() {
+        if (!this.enabled || !this.ctx) return;
+        this._playTone(800, 'triangle', 0.1, 0.2, 0.05);
+        setTimeout(() => this._playTone(1000, 'triangle', 0.1, 0.2, 0.05), 100);
+    }
+
+    playPowerup() {
+        if (!this.enabled || !this.ctx) return;
+        this._playTone(600, 'sine', 0.1, 0.1, 0.1);
+        setTimeout(() => this._playTone(800, 'sine', 0.1, 0.1, 0.1), 100);
+        setTimeout(() => this._playTone(1000, 'sine', 0.1, 0.2, 0.1), 200);
+    }
+    
+    playLaneChange() {
+        if (!this.enabled || !this.ctx) return;
+        // Subtle whoosh
+        this._playTone(150, 'sine', 0.05, 0.1, 0.05);
+    }
+
+    startEngine() {
+        if (!this.enabled || !this.ctx) return;
+        if (this.engineOscillator) return; // Already running
+
+        this.engineOscillator = this.ctx.createOscillator();
+        this.engineOscillator.type = 'sawtooth';
+        this.engineOscillator.frequency.value = 50; // Low hum
+
+        this.engineGain = this.ctx.createGain();
+        this.engineGain.gain.value = 0.1;
+
+        // Filter to make it sound muffled
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 200;
+
+        this.engineOscillator.connect(filter);
+        filter.connect(this.engineGain);
+        this.engineGain.connect(this.ctx.destination);
+
+        this.engineOscillator.start();
+    }
+    
+    updateEngineSpeed(speedRatio) {
+        // speedRatio typically 0.5 to 2.0
+        if (this.engineOscillator && this.enabled) {
+            // Pitch up slightly as speed increases
+            this.engineOscillator.frequency.setTargetAtTime(
+                50 + (speedRatio * 30), 
+                this.ctx.currentTime, 
+                0.1
+            );
+        }
+    }
+
+    stopEngine() {
+        if (this.engineOscillator) {
+            try {
+                this.engineOscillator.stop();
+            } catch(e) {}
+            this.engineOscillator.disconnect();
+            this.engineOscillator = null;
+        }
+        if (this.engineGain) {
+            this.engineGain.disconnect();
+            this.engineGain = null;
+        }
+    }
+
+    _playTone(freq, type, dur, vol, attack = 0.01) {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        
+        osc.type = type;
+        osc.frequency.value = freq;
+        
+        // Envelope
+        gain.gain.setValueAtTime(0, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(vol, this.ctx.currentTime + attack);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + dur);
+        
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.start();
+        osc.stop(this.ctx.currentTime + dur);
+    }
+}
+
+// Global instance
+const audioManager = new AudioSystem();
+
+// Game State
+const GAME_STATE = {
+    MENU: 0,
+    PLAYING: 1,
+    GAMEOVER: 2
+};
+
+let currentState = GAME_STATE.MENU;
+
+// Canvas Setup
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+
+// Game Variables
+let lastTime = 0;
+let distance = 0;
+let coins = 0;
+let bestScore = 0;
+try {
+    bestScore = localStorage.getItem('endlessHighwayBestScore') || 0;
+} catch (e) {
+    console.warn("localStorage not available");
+}
+let baseSpeed = 0; // Speed of the road/obstacles
+let speedMultiplier = 1;
+let globalTime = 0;
+
+// Particle System
+const ParticleSystem = {
+    particles: [],
+    
+    spawn(x, y, color, amount) {
+        for (let i = 0; i < amount; i++) {
+            this.particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 400, // Velocity X
+                vy: (Math.random() - 0.5) * 400, // Velocity Y
+                life: 1.0,
+                maxLife: 1.0,
+                color: color,
+                size: Math.random() * 5 + 2
+            });
+        }
+    },
+    
+    update(dt) {
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            let p = this.particles[i];
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.life -= dt;
+            if (p.life <= 0) {
+                this.particles.splice(i, 1);
+            }
+        }
+    },
+    
+    draw(ctx) {
+        for (let p of this.particles) {
+            ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1.0;
+    }
+};
+
+let screenShake = 0;
+
+// Road Configuration
+const ROAD_CONFIG = {
+    lanes: 3,
+    laneWidth: 0, // Calculated dynamically
+    roadWidth: 0,
+    margin: 0
+};
+
+// Resize canvas to fit screen
+function resizeCanvas() {
+    const container = document.getElementById('game-container');
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// Calculate Road Dimensions
+function updateRoadDimensions() {
+    // Road takes up max 80% of width or max 400px
+    ROAD_CONFIG.roadWidth = Math.min(canvas.width * 0.9, 450);
+    ROAD_CONFIG.laneWidth = ROAD_CONFIG.roadWidth / ROAD_CONFIG.lanes;
+    ROAD_CONFIG.margin = (canvas.width - ROAD_CONFIG.roadWidth) / 2;
+}
+
+// Re-calculate on resize
+window.addEventListener('resize', updateRoadDimensions);
+updateRoadDimensions();
+
+// --- Input Handling ---
+const Input = {
+    left: false,
+    right: false,
+    swipeX: 0,
+    startX: 0,
+    isSwiping: false,
+    cooldown: 0
+};
+
+// Keyboard
+window.addEventListener('keydown', (e) => {
+    if (currentState !== GAME_STATE.PLAYING) return;
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') Input.left = true;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') Input.right = true;
+});
+
+window.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') Input.left = false;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') Input.right = false;
+});
+
+// Touch / Mouse
+canvas.addEventListener('mousedown', handlePointerDown);
+canvas.addEventListener('touchstart', handlePointerDown, { passive: false });
+
+canvas.addEventListener('mousemove', handlePointerMove);
+canvas.addEventListener('touchmove', handlePointerMove, { passive: false });
+
+canvas.addEventListener('mouseup', handlePointerUp);
+canvas.addEventListener('touchend', handlePointerUp);
+
+function handlePointerDown(e) {
+    if (currentState !== GAME_STATE.PLAYING) return;
+    e.preventDefault(); // Prevent scrolling
+    Input.isSwiping = true;
+    Input.startX = e.touches ? e.touches[0].clientX : e.clientX;
+}
+
+function handlePointerMove(e) {
+    if (!Input.isSwiping) return;
+    e.preventDefault();
+}
+
+function handlePointerUp(e) {
+    if (!Input.isSwiping) return;
+    Input.isSwiping = false;
+    
+    const endX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+    const diffX = endX - Input.startX;
+    
+    // Threshold for swipe
+    if (Math.abs(diffX) > 30) {
+        if (diffX > 0) {
+            Input.right = true; // Trigger right swipe
+            setTimeout(() => Input.right = false, 50); // Reset quickly
+        } else {
+            Input.left = true; // Trigger left swipe
+            setTimeout(() => Input.left = false, 50);
+        }
+    } else {
+        // Tap: move based on screen side
+        const midPoint = canvas.width / 2;
+        if (endX > midPoint) {
+            Input.right = true;
+            setTimeout(() => Input.right = false, 50);
+        } else {
+            Input.left = true;
+            setTimeout(() => Input.left = false, 50);
+        }
+    }
+}
+
+// --- Player Class ---
+class Player {
+    constructor() {
+        this.lane = 1; // 0: Left, 1: Center, 2: Right
+        this.width = 40;
+        this.height = 70;
+        
+        // Logical X position (target)
+        this.targetX = this.getLaneX(this.lane);
+        // Visual X position (current) for smooth interpolation
+        this.x = this.targetX;
+        
+        this.y = canvas.height - this.height - 50; // Fixed near bottom
+        
+        this.color = '#3498db'; // Blue car
+        this.switchSpeed = 15; // Interpolation speed
+        
+        this.isInvulnerable = false;
+        this.invulnerableTimer = 0;
+    }
+
+    getLaneX(laneIndex) {
+        // Center of the requested lane
+        return ROAD_CONFIG.margin + (laneIndex * ROAD_CONFIG.laneWidth) + (ROAD_CONFIG.laneWidth / 2);
+    }
+
+    update(dt) {
+        // Handle Input
+        if (Input.cooldown <= 0) {
+            if (Input.left && this.lane > 0) {
+                this.lane--;
+                this.targetX = this.getLaneX(this.lane);
+                Input.cooldown = 0.2; // 200ms cooldown
+                audioManager.playLaneChange();
+            } else if (Input.right && this.lane < 2) {
+                this.lane++;
+                this.targetX = this.getLaneX(this.lane);
+                Input.cooldown = 0.2;
+                audioManager.playLaneChange();
+            }
+        }
+        
+        if (Input.cooldown > 0) {
+            Input.cooldown -= dt;
+        }
+
+        // Keep targetX updated in case of window resize
+        this.targetX = this.getLaneX(this.lane);
+        this.y = canvas.height - this.height - Math.max(20, canvas.height * 0.1);
+
+        // Smooth interpolation for X
+        this.x += (this.targetX - this.x) * this.switchSpeed * dt;
+
+        // Invulnerability blinking
+        if (this.isInvulnerable) {
+            this.invulnerableTimer -= dt;
+            if (this.invulnerableTimer <= 0) {
+                this.isInvulnerable = false;
+            }
+        }
+    }
+
+    draw(ctx) {
+        ctx.save();
+        
+        // Blink if invulnerable
+        if (this.isInvulnerable && Math.floor(globalTime * 10) % 2 === 0) {
+            ctx.globalAlpha = 0.5;
+        }
+
+        // Simple Car Graphic
+        ctx.translate(this.x, this.y);
+        
+        // Body
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.roundRect(-this.width/2, -this.height/2, this.width, this.height, 8);
+        ctx.fill();
+
+        // Windshield
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.roundRect(-this.width/2 + 4, -this.height/4, this.width - 8, this.height/3.5, 3);
+        ctx.fill();
+        
+        // Rear window
+        ctx.beginPath();
+        ctx.roundRect(-this.width/2 + 6, this.height/2 - 15, this.width - 12, 10, 2);
+        ctx.fill();
+        
+        // Headlights
+        ctx.fillStyle = '#ffff99';
+        ctx.beginPath();
+        ctx.arc(-this.width/2 + 8, -this.height/2 + 4, 4, 0, Math.PI*2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(this.width/2 - 8, -this.height/2 + 4, 4, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+let player = null;
+
+// --- Entities ---
+const ENTITY_TYPES = {
+    CAR: 0,
+    TRUCK: 1,
+    MOTORCYCLE: 2,
+    BARRICADE: 3
+};
+
+class Obstacle {
+    constructor(type, lane, yOffset = 0) {
+        this.type = type;
+        this.lane = lane;
+        this.x = ROAD_CONFIG.margin + (lane * ROAD_CONFIG.laneWidth) + (ROAD_CONFIG.laneWidth / 2);
+        this.y = -100 - yOffset;
+        
+        this.passed = false; // For near-miss / score
+        
+        // Define properties based on type
+        switch (type) {
+            case ENTITY_TYPES.CAR:
+                this.width = 40;
+                this.height = 70;
+                this.color = '#e74c3c'; // Red
+                this.speedMultiplier = 0.5; // Moves slower than road (so it moves down screen)
+                break;
+            case ENTITY_TYPES.TRUCK:
+                this.width = 50;
+                this.height = 120;
+                this.color = '#95a5a6'; // Gray
+                this.speedMultiplier = 0.7; // Slower than car (moves down faster)
+                break;
+            case ENTITY_TYPES.MOTORCYCLE:
+                this.width = 20;
+                this.height = 50;
+                this.color = '#f1c40f'; // Yellow
+                this.speedMultiplier = 0.2; // Fast (moves down slower)
+                break;
+            case ENTITY_TYPES.BARRICADE:
+                this.width = ROAD_CONFIG.laneWidth * 0.8;
+                this.height = 30;
+                this.color = '#e67e22'; // Orange
+                this.speedMultiplier = 0.0; // Static on road (moves towards player at full road speed)
+                break;
+        }
+    }
+
+    update(dt, currentRoadSpeed) {
+        // Calculate relative speed (road speed - object speed)
+        // Obstacles move *down* the screen
+        const objSpeed = currentRoadSpeed * (1 - this.speedMultiplier);
+        this.y += objSpeed * dt;
+        
+        // Update x just in case road was resized
+        this.x = ROAD_CONFIG.margin + (this.lane * ROAD_CONFIG.laneWidth) + (ROAD_CONFIG.laneWidth / 2);
+    }
+
+    draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        
+        if (this.type === ENTITY_TYPES.BARRICADE) {
+            // Draw Barricade (Stripes)
+            ctx.fillStyle = this.color;
+            ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+            
+            ctx.fillStyle = '#fff';
+            // Simple stripes
+            for (let i = -this.width/2; i < this.width/2; i += 20) {
+                ctx.beginPath();
+                ctx.moveTo(i, -this.height/2);
+                ctx.lineTo(i + 10, this.height/2);
+                ctx.lineTo(i + 20, this.height/2);
+                ctx.lineTo(i + 10, -this.height/2);
+                ctx.fill();
+            }
+        } else {
+            // Draw Vehicle
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.roundRect(-this.width/2, -this.height/2, this.width, this.height, 5);
+            ctx.fill();
+            
+            // Windshield
+            ctx.fillStyle = '#111';
+            ctx.beginPath();
+            if (this.type === ENTITY_TYPES.MOTORCYCLE) {
+                ctx.roundRect(-this.width/2 + 2, -this.height/4, this.width - 4, 10, 2);
+            } else {
+                ctx.roundRect(-this.width/2 + 4, -this.height/4, this.width - 8, this.height/4, 2);
+            }
+            ctx.fill();
+            
+            // Taillights
+            ctx.fillStyle = '#ff0000';
+            ctx.beginPath();
+            ctx.arc(-this.width/2 + 5, -this.height/2 + 2, 3, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(this.width/2 - 5, -this.height/2 + 2, 3, 0, Math.PI*2);
+            ctx.fill();
+        }
+        
+        ctx.restore();
+    }
+}
+
+// Entity Manager
+const EntityManager = {
+    obstacles: [],
+    spawnTimer: 0,
+    spawnInterval: 1.5, // Seconds between spawns
+    
+    init() {
+        this.obstacles = [];
+        this.spawnTimer = 0;
+        this.spawnInterval = 1.5;
+    },
+    
+    update(dt, currentRoadSpeed) {
+        // Spawning logic
+        this.spawnTimer -= dt;
+        if (this.spawnTimer <= 0) {
+            this.spawn();
+            // Decrease spawn interval as game gets faster, but cap it
+            this.spawnInterval = Math.max(0.4, 2.0 - (speedMultiplier - 1));
+            this.spawnTimer = this.spawnInterval + (Math.random() * 0.5); // Add slight randomness
+        }
+        
+        // Update obstacles
+        for (let i = this.obstacles.length - 1; i >= 0; i--) {
+            const obs = this.obstacles[i];
+            obs.update(dt, currentRoadSpeed);
+            
+            // Remove off-screen obstacles
+            if (obs.y > canvas.height + 200) {
+                this.obstacles.splice(i, 1);
+            }
+        }
+    },
+    
+    spawn() {
+        // Determine how many objects to spawn (1 or 2)
+        const numObjects = Math.random() > 0.7 ? 2 : 1;
+        
+        // Pick available lanes
+        let availableLanes = [0, 1, 2];
+        
+        for (let i = 0; i < numObjects; i++) {
+            if (availableLanes.length === 0) break; // Prevent impossible walls (all 3 lanes blocked)
+            
+            // If we are spawning a 2nd object, ensure there's a gap (don't spawn a wall)
+            // If numObjects is 2, availableLanes starts with 3, so after 1 pick, length is 2.
+            // If we pick again, length is 1. We NEVER pick 3 objects at the same yOffset.
+            
+            const laneIndex = Math.floor(Math.random() * availableLanes.length);
+            const lane = availableLanes[laneIndex];
+            availableLanes.splice(laneIndex, 1); // Remove from available
+            
+            // Determine type
+            const rand = Math.random();
+            let type;
+            if (rand < 0.5) type = ENTITY_TYPES.CAR;
+            else if (rand < 0.75) type = ENTITY_TYPES.TRUCK;
+            else if (rand < 0.9) type = ENTITY_TYPES.MOTORCYCLE;
+            else type = ENTITY_TYPES.BARRICADE;
+            
+            // Small y offset so they don't look perfectly aligned if 2 are spawned
+            const yOffset = Math.random() * 50; 
+            
+            this.obstacles.push(new Obstacle(type, lane, yOffset));
+        }
+    },
+    
+    draw(ctx) {
+        for (const obs of this.obstacles) {
+            obs.draw(ctx);
+        }
+    }
+};
+
+// UI Elements
+const uiMainMenu = document.getElementById('main-menu');
+const uiHud = document.getElementById('hud');
+const uiGameOver = document.getElementById('game-over');
+
+const btnPlay = document.getElementById('btn-play');
+const btnPlayAgain = document.getElementById('btn-play-again');
+const btnHome = document.getElementById('btn-home');
+const btnSound = document.getElementById('btn-sound');
+
+const elMenuBestScore = document.getElementById('menu-best-score');
+const elHudDistance = document.getElementById('hud-distance');
+const elHudCoins = document.getElementById('hud-coins');
+const elMessage = document.getElementById('message-display');
+const elPowerup = document.getElementById('hud-powerup');
+
+const elGoDistance = document.getElementById('go-distance');
+const elGoCoins = document.getElementById('go-coins');
+const elGoBestScore = document.getElementById('go-best-score');
+const elNewRecord = document.getElementById('new-record-msg');
+
+// Initialize UI
+elMenuBestScore.textContent = bestScore;
+
+// Event Listeners for UI
+function handlePlayClick(e) {
+    if (e) e.preventDefault();
+    startGame();
+}
+function handleHomeClick(e) {
+    if (e) e.preventDefault();
+    showMainMenu();
+}
+function handleSoundClick(e) {
+    if (e) e.preventDefault();
+    const isMuted = !audioManager.toggleMute();
+    btnSound.textContent = isMuted ? '🔇 SOUND OFF' : '🔊 SOUND ON';
+}
+
+btnPlay.addEventListener('click', handlePlayClick);
+btnPlay.addEventListener('touchstart', handlePlayClick, { passive: false });
+
+btnPlayAgain.addEventListener('click', handlePlayClick);
+btnPlayAgain.addEventListener('touchstart', handlePlayClick, { passive: false });
+
+btnHome.addEventListener('click', handleHomeClick);
+btnHome.addEventListener('touchstart', handleHomeClick, { passive: false });
+
+btnSound.addEventListener('click', handleSoundClick);
+btnSound.addEventListener('touchstart', handleSoundClick, { passive: false });
+
+// UI Management
+function switchState(newState) {
+    currentState = newState;
+    
+    // Hide all
+    uiMainMenu.classList.remove('active');
+    uiHud.classList.remove('active');
+    uiGameOver.classList.remove('active');
+    
+    // Show current
+    if (newState === GAME_STATE.MENU) {
+        uiMainMenu.classList.add('active');
+        elMenuBestScore.textContent = bestScore;
+    } else if (newState === GAME_STATE.PLAYING) {
+        uiHud.classList.add('active');
+    } else if (newState === GAME_STATE.GAMEOVER) {
+        uiGameOver.classList.add('active');
+    }
+}
+
+function showMainMenu() {
+    audioManager.init();
+    audioManager.playClick();
+    switchState(GAME_STATE.MENU);
+}
+
+// Show temporal message on HUD
+function showMessage(text, color = '#0f0') {
+    elMessage.textContent = text;
+    elMessage.style.color = color;
+    elMessage.style.textShadow = `0 0 10px ${color}`;
+    elMessage.classList.add('show');
+    
+    setTimeout(() => {
+        elMessage.classList.remove('show');
+    }, 1000);
+}
+
+// Game Loop Functions
+function initGame() {
+    // Ensure canvas dimensions are initialized properly before spawning player
+    if (canvas.height === 0 || canvas.width === 0) {
+        resizeCanvas();
+        updateRoadDimensions();
+    }
+    // Fallback if STILL 0 (e.g. display none or detached)
+    if (canvas.height === 0) canvas.height = window.innerHeight;
+    if (canvas.width === 0) canvas.width = Math.min(window.innerWidth, 600);
+
+    distance = 0;
+    coins = 0;
+    baseSpeed = 400; // Starting road speed
+    speedMultiplier = 1;
+    globalTime = 0;
+    
+    player = new Player();
+    
+    // Reset HUD
+    elHudDistance.textContent = '0';
+    elHudCoins.textContent = '0';
+    elPowerup.textContent = '';
+    
+    EntityManager.init();
+}
+
+function startGame() {
+    // Safety check: Don't allow multiple loops to start
+    if (currentState === GAME_STATE.PLAYING) return;
+
+    audioManager.init();
+    audioManager.playClick();
+    audioManager.startEngine();
+    
+    initGame();
+    switchState(GAME_STATE.PLAYING);
+    
+    lastTime = performance.now();
+    requestAnimationFrame(gameLoop);
+}
+
+function gameOver() {
+    audioManager.playCrash();
+    screenShake = 0.5; // Shake screen for 0.5 seconds
+    ParticleSystem.spawn(player.x, player.y, '#e74c3c', 30); // Explosion
+    ParticleSystem.spawn(player.x, player.y, '#f1c40f', 20); // Fire
+    
+    let isNewRecord = false;
+    const currentDistance = Math.floor(distance);
+    
+    if (currentDistance > bestScore) {
+        bestScore = currentDistance;
+        try {
+            localStorage.setItem('endlessHighwayBestScore', bestScore);
+        } catch (e) {
+            console.warn("localStorage not available");
+        }
+        isNewRecord = true;
+    }
+    
+    elGoDistance.textContent = currentDistance;
+    elGoCoins.textContent = coins;
+    elGoBestScore.textContent = bestScore;
+    
+    if (isNewRecord) {
+        elNewRecord.classList.add('show');
+    } else {
+        elNewRecord.classList.remove('show');
+    }
+    
+    switchState(GAME_STATE.GAMEOVER);
+}
+
+function update(dt) {
+    // Screen shake update
+    if (screenShake > 0) {
+        screenShake -= dt;
+        if (screenShake < 0) screenShake = 0;
+    }
+
+    if (currentState !== GAME_STATE.PLAYING) {
+        ParticleSystem.update(dt);
+        return;
+    }
+    
+    globalTime += dt;
+    
+    // Update distance
+    distance += (baseSpeed * speedMultiplier * dt) / 50; // Arbitrary scale for distance, increased slightly for better pacing
+    elHudDistance.textContent = Math.floor(distance);
+    
+    // Difficulty Scaling: Increase speed multiplier slowly over time
+    // Max multiplier of 3 (3x starting speed)
+    if (speedMultiplier < 3.0) {
+        speedMultiplier += dt * 0.015; 
+    }
+    
+    // Update engine sound pitch based on speed
+    audioManager.updateEngineSpeed(speedMultiplier);
+    
+    if (player) {
+        player.update(dt);
+    }
+    
+    const currentRoadSpeed = baseSpeed * speedMultiplier;
+    EntityManager.update(dt, currentRoadSpeed);
+    
+    ParticleSystem.update(dt);
+    
+    checkCollisions();
+}
+
+function checkCollisions() {
+    if (!player || player.isInvulnerable) return;
+
+    // AABB Collision bounds for player (slightly smaller than visual for fairness)
+    const pLeft = player.x - (player.width / 2) + 5;
+    const pRight = player.x + (player.width / 2) - 5;
+    const pTop = player.y - (player.height / 2) + 5;
+    const pBottom = player.y + (player.height / 2) - 5;
+
+    for (const obs of EntityManager.obstacles) {
+        // AABB Collision bounds for obstacle
+        const oLeft = obs.x - (obs.width / 2);
+        const oRight = obs.x + (obs.width / 2);
+        const oTop = obs.y - (obs.height / 2);
+        const oBottom = obs.y + (obs.height / 2);
+
+        // Check Hard Collision
+        if (pLeft < oRight && pRight > oLeft && pTop < oBottom && pBottom > oTop) {
+            if (player.isInvulnerable && player.invulnerableTimer <= 0) {
+                // Shield breaks, destroy obstacle
+                audioManager.playCrash();
+                ParticleSystem.spawn(player.x, player.y, '#3498db', 30);
+                showMessage("SHIELD BROKEN!", "#e74c3c");
+                player.isInvulnerable = false;
+                
+                // Slight invulnerability cooldown so they don't immediately die on a truck
+                player.invulnerableTimer = 1.0; 
+                player.isInvulnerable = true; 
+                
+                obs.y = canvas.height + 1000;
+            } else if (!player.isInvulnerable) {
+                // True Collision detected
+                gameOver();
+                return; // Stop checking
+            }
+        }
+
+        // Check Near Miss
+        if (!obs.passed && pBottom < oTop) {
+            // Player has passed the obstacle
+            obs.passed = true;
+            
+            // If they are in an adjacent lane or very close, award near miss
+            const dist = Math.abs(player.x - obs.x);
+            if (dist < ROAD_CONFIG.laneWidth * 1.2 && dist > (player.width/2 + obs.width/2)) {
+                audioManager.playNearMiss();
+                showMessage("NEAR MISS! +50", "#ffd700");
+                distance += 50; // Bonus points
+                ParticleSystem.spawn(player.x, player.y, '#ffd700', 10);
+            }
+        }
+    }
+}
+
+function drawBackground() {
+    ctx.save();
+    
+    // Apply Screen Shake
+    if (screenShake > 0) {
+        const shakeX = (Math.random() - 0.5) * 20 * screenShake;
+        const shakeY = (Math.random() - 0.5) * 20 * screenShake;
+        ctx.translate(shakeX, shakeY);
+    }
+    
+    // Base off-road color
+    ctx.fillStyle = '#1a5928'; // Grass color
+    ctx.fillRect(-50, -50, canvas.width + 100, canvas.height + 100); // Draw slightly larger to cover shake
+
+    // Draw Road
+    ctx.fillStyle = '#333'; // Asphalt
+    ctx.fillRect(ROAD_CONFIG.margin, -50, ROAD_CONFIG.roadWidth, canvas.height + 100);
+    
+    // Road borders
+    ctx.fillStyle = '#bbb';
+    ctx.fillRect(ROAD_CONFIG.margin - 5, -50, 5, canvas.height + 100);
+    ctx.fillRect(ROAD_CONFIG.margin + ROAD_CONFIG.roadWidth, -50, 5, canvas.height + 100);
+
+    // Lane markings (Dashed lines moving down)
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 4;
+    ctx.setLineDash([30, 30]); // 30px dash, 30px gap
+    
+    // Calculate offset based on distance/time to simulate speed
+    const lineOffset = (globalTime * baseSpeed * speedMultiplier) % 60;
+    ctx.lineDashOffset = -lineOffset;
+
+    for (let i = 1; i < ROAD_CONFIG.lanes; i++) {
+        const x = ROAD_CONFIG.margin + i * ROAD_CONFIG.laneWidth;
+        ctx.beginPath();
+        ctx.moveTo(x, -50);
+        ctx.lineTo(x, canvas.height + 100);
+        ctx.stroke();
+    }
+    ctx.setLineDash([]); // Reset line dash
+    
+    ctx.restore(); // Restore shake translation
+}
+
+function draw() {
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    drawBackground();
+    
+    ctx.save();
+    // Re-apply shake for entities/player/particles
+    if (screenShake > 0) {
+        const shakeX = (Math.random() - 0.5) * 20 * screenShake;
+        const shakeY = (Math.random() - 0.5) * 20 * screenShake;
+        ctx.translate(shakeX, shakeY);
+    }
+    
+    EntityManager.draw(ctx);
+    
+    if (player) {
+        player.draw(ctx);
+    }
+    
+    ParticleSystem.draw(ctx);
+    
+    ctx.restore();
+}
+
+function gameLoop(timestamp) {
+    // Calculate delta time in seconds
+    let dt = (timestamp - lastTime) / 1000;
+    lastTime = timestamp;
+    
+    // Cap dt to prevent huge jumps if tab was inactive
+    if (dt > 0.1) dt = 0.1;
+    
+    update(dt);
+    draw();
+    
+    if (currentState === GAME_STATE.PLAYING) {
+        requestAnimationFrame(gameLoop);
+    }
+}
+
+// Initial draw for background
+draw();
+
+</script>
+</body>
+</html>
